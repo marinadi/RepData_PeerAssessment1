@@ -1,0 +1,123 @@
+title: "Assigment"
+author: "marinac"
+date: "20 September 2015"
+output: html_document
+
+
+##Loading and preprocessing the data##
+
+```{r, echo=TRUE}
+fileUrl<-"http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileUrl,destfile="/Users/marina_casarino/Desktop/coursera/data.zip")
+data<-read.csv(unzip("data.zip"))
+data$date <- as.Date(data$date)
+```
+
+
+##What is mean total number of steps taken per day?##
+
+**Histogram of the total number of steps taken each day**
+
+```{r, echo=TRUE}
+library(dplyr)
+daily_data<-group_by(data,date)
+new_data<-summarize(daily_data, steps=sum(steps,na.rm=TRUE))
+hist(new_data$steps,col="grey",main= "Histogram of Number Step per Day",xlab="Number of Steps")
+```
+
+**Mean and Median total number of steps taken per day**
+
+```{r, echo=TRUE}
+mean_steps<-mean(new_data$steps, na.rm=TRUE )
+median_steps<-median(new_data$steps, na.rm=TRUE )
+```
+
+The mean of daily steps is: `r mean_steps` and median of daily steps is: `r median_steps`
+
+
+##What is the average daily activity pattern?##
+
+**Line plot of average daily pattern**
+
+```{r, echo=TRUE}
+interval_data<-group_by(data,interval)
+new_data2<-summarize(interval_data, steps=mean(steps,na.rm=TRUE))
+plot(new_data2,type="l", main="Averaged Number of Steps per Interval ")
+```
+
+**Maximum number of steps per interval**
+
+```{r, echo=TRUE}
+max_value<-filter(new_data2,steps==max(steps))
+max_value_interval<-max_value$interval
+max_value_steps<-max_value$steps
+```
+
+The maximun average value of steps is: `r max_value$steps` and ocurr in the interval: `r max_value$interval`
+
+
+##Imputing missing values##
+
+**Missing Values**
+
+```{r, echo=TRUE}
+number_empty_values<-sum(is.na(data$steps))
+```
+
+The number of missing values for steps id: `r number_empty_values`
+
+**Creating a new-completed dataset, by replacing the empty steps values by their average value**
+
+```{r, echo=TRUE}
+#selecting the data#
+data_complete<-filter(data,is.na(steps)==FALSE)
+data_incomplete<-filter(data,is.na(steps)==TRUE)
+#calculating the values to replace NA#
+interval_complete_data<-group_by(data_complete,interval)
+new_data3<-summarize(interval_data, steps=mean(steps,na.rm=TRUE))
+merged_data<-merge (select(data_incomplete,-steps),new_data3,by="interval")
+#creating new dataset by merging the original set of complete data with the set of replaced values#
+new_dataset<-rbind(merged_data,data_complete)
+```
+
+**New Histogram with Completed Data**
+
+```{r, echo=TRUE}
+new_daily_data<-group_by(new_dataset,date)
+new_completed_data<-summarize(new_daily_data, steps=sum(steps))
+hist(new_completed_data$steps,col="light blue",main= "New Histogram of Number Step per Day",xlab="Number of Steps")
+```
+
+**Mean and Median total number of steps taken per day using completed data**
+
+```{r, echo=TRUE}
+new_mean_steps<-mean(new_completed_data$steps )
+new_median_steps<-median(new_completed_data$steps)
+```
+
+The mean of daily steps is: `r new_mean_steps` and median of daily steps is: `r new_median_steps`
+
+
+##Differences in activity patterns between weekdays and weekends##
+
+**Creating new dataset**
+
+```{r, echo=TRUE}
+#adding weekdays column#
+new_dataset<-rbind(merged_data,data_complete)
+new_database_with_days<-mutate(new_dataset,day=weekdays(date))
+#selecting the data#
+new_database_weekend<-mutate(filter(new_database_with_days,day=="Saturday"|day=="Sunday"))
+new_interval_database_weekend<-summarize(group_by(new_database_weekend,interval),steps=mean(steps),type_of_day="weekend")
+new_database_weekday<-mutate(filter(new_database_with_days,day!="Saturday" & day!="Sunday"))
+new_interval_database_weekday<-summarize(group_by(new_database_weekday,interval),steps=mean(steps),type_of_day="weekday")
+#final database with interval/average steps per interval/type_of_day#
+final_database<-rbind(new_interval_database_weekend,new_interval_database_weekday)
+```
+
+**Panel Plot**
+
+```{r, echo=TRUE}
+library(lattice)
+xyplot(final_database$steps ~ final_database$interval | final_database$type_of_day, data = final_database, type="l",main="Differences in Activity Patterns between Weekdays and Weekends",xlab="Interval",ylab="Number of Steps",layout = c(1,2))
+```
